@@ -1,5 +1,3 @@
-# windeco
-WINDECO Arduino Project
 WINDECO is a Smart solution that allows you to control the windows that you have in a given room. 
 The project consists of a control unit and the window itself. 
 The control unit continuously sends data of the environmental parameters collected via Bluetooth, such as brightness (which can be set by the user via remote), CO2 level and infrared signals.
