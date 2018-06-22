@@ -138,9 +138,9 @@ void leggi_ir() { // Per leggere i segnali del telecomando infrarossi
   
   decode_results segnale; // Per sapere il segnale inviato al sensore infrarossi
 
-  if(infrared.decode(&segnale)) { // this checks to see if a code has been received
+  if(infrared.decode(&segnale)) { // Controlla che almeno un codice sia stato ricevuto
 
-    Serial.println(segnale.value, HEX); // prints the hex value a a button press
+    Serial.println(segnale.value, HEX); // Stampo il valore esadecimale del bottone premuto
   
     if(segnale.value == BUTTON_UP) {
       if(modAutomatica == 0) irCmd = 1; // 1 = su
