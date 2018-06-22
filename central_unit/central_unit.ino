@@ -1,6 +1,6 @@
 /*
 
-  ++ FINESTRA WINDECO ++
+  ++ CENTRALE WINDECO ++
   
   
   Progetto per la tesina sperimentale: "WINDECO"
