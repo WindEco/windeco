@@ -8,12 +8,12 @@
   Licenza: Open-Source
 
   
-	STRUTTURA DATI WINDECO:
+  STRUTTURA DATI WINDECO:
 
   sendData(int mod, int percentScelta, int lum, int command, int co2)
   
-	< : Inizio pacchetto dati
-	> : Fine pacchetto dati
+  < : Inizio pacchetto dati
+  > : Fine pacchetto dati
 	
 */
 
