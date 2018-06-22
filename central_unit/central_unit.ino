@@ -5,7 +5,7 @@
   
   Progetto per la tesina sperimentale: "WINDECO"
   Autore: WINDECO Development Team
-  Licenza: Open-Source
+  Licenza: MIT
 
   
   STRUTTURA DATI WINDECO:
