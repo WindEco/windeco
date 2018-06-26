@@ -81,7 +81,7 @@ float bytesToInt (byte array[2]) { // Converto i byte in interi
 
 
 
-int modAutomaticaTmp = 1; // Forse da togliere = 1
+int modAutomaticaTmp; // Forse da mettere = 1
 int lumInternaTmp; // Quella inviata dagli altri sensori installati sulla centrale operativa
 int percentSceltaTmp = 100; // Quella che ha scelto l'utente dalla centrale operativa
 int co2Tmp; // Variabile della CO2
@@ -102,33 +102,33 @@ void recvData() { // Funzione per ricevere i dati tramite Bluetooth
   
   char c = BTSerial.read();
   
-  if(c == '<') { // Se leggo il carattere iniziale 
+  if(c == '<') { // Se viene letto il carattere iniziale
     while(BTSerial.available() < 12);
     byte b[2];
     
     b[0] = BTSerial.read();
     b[1] = BTSerial.read();
-    modAutomaticaTmp = bytesToInt(b);
+    modAutomaticaTmp = bytesToInt(b); // Mod Automatica
 
     b[0] = BTSerial.read();
     b[1] = BTSerial.read();
-    percentSceltaTmp = bytesToInt(b);
+    percentSceltaTmp = bytesToInt(b); // Percentuale luminosità
 
     b[0] = BTSerial.read();
     b[1] = BTSerial.read();
-    lumInternaTmp = bytesToInt(b);
+    lumInternaTmp = bytesToInt(b); // Luminosità interna letta dalla centrale
     
     b[0] = BTSerial.read();
     b[1] = BTSerial.read();
-    irValue = bytesToInt(b);
+    irValue = bytesToInt(b); // Valore telecomando infrarossi
     
     b[0] = BTSerial.read();
     b[1] = BTSerial.read();
-    co2 = bytesToInt(b);
+    co2 = bytesToInt(b); // Valore CO2
 
     b[0] = BTSerial.read();
     b[1] = BTSerial.read();
-    totDataRecv = bytesToInt(b);
+    totDataRecv = bytesToInt(b); // Somma dei dati ricevuti
 
     totData = modAutomaticaTmp + percentSceltaTmp + lumInternaTmp + irValue + co2Tmp;
 
@@ -312,7 +312,7 @@ void ventola_off() { // Disattivazione della ventola
 }
 
 long oldTime = 0;
-int lumEsterna = (analogRead(pinLumESopra) + analogRead(pinLumESotto))/2; // Luminosità esterna
+float lumEsterna = (analogRead(pinLumESopra) + analogRead(pinLumESotto))/2; // Luminosità esterna
 void loop() {
   
   recvData(); // Ricevimento dati dal Bluetooth
