@@ -124,7 +124,7 @@ void recvData() { // Funzione per ricevere i dati tramite Bluetooth
     
     b[0] = BTSerial.read();
     b[1] = BTSerial.read();
-    co2 = bytesToInt(b); // Valore CO2
+    co2Tmp = bytesToInt(b); // Valore CO2
 
     b[0] = BTSerial.read();
     b[1] = BTSerial.read();
