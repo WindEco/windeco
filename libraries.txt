@@ -1,4 +1,4 @@
-This are the Arduino libraries needed to run our project.
+These are the Arduino libraries needed to run our project.
 
 1) Arduino-IRremote Library: https://github.com/z3t0/Arduino-IRremote
 2) CO2Sensor Library: https://github.com/solvek/CO2Sensor
