@@ -23,8 +23,10 @@
 
 #include <IRremote.h> // Libreria sensore infrarossi
 #include <SoftwareSerial.h> // Libreria Bluetooth
-#include <LiquidCrystal.h> // Libreria schermo LCD
+#include <Wire.h> // Libreria che serve per l'LCD
+#include <LiquidCrystal_I2C.h> // Libreria schermo LCD 20x4
 #include "CO2Sensor.h" // Libreria sensore di CO2
+#include "DHT.h" // Libreria DHT22
 
 
 // DEFINIZIONE PIN SENSORI //
@@ -34,7 +36,8 @@
 #define pinLum2 A1
 #define pinLum3 A2
 #define pinLum4 A3
-#define pinCo2 A4
+#define pinCo2 A6
+#define pinDht 7
 #define pinInfrarossi 8
 
 
@@ -46,6 +49,7 @@
 #define BUTTON_DOWN 0xFFA857
 #define BUTTON_SX 0xFF22DD
 #define BUTTON_DX 0xFFC23D
+#define BUTTON_STAR 0xFF42BD
 #define BUTTON_1 0xFF6897
 #define BUTTON_2 0xFF9867
 #define BUTTON_3 0xFFB04F
@@ -61,8 +65,7 @@
 // DEFINIZIONE VARIABILI STATICHE GLOABLI //
 
 
-#define CO2_HIGH 700 // Variabile che definisce la soglia massima della CO2 (1000 - 2700 ppm)
-//#define TEMPO_CALIBRAZ_CO2 1800000 // Variabile che definisce ogni quanto tempo c'è da calibrare il sensore di CO2 (30 Min)
+#define CO2_HIGH 500 // Variabile che definisce la soglia massima della CO2 (Max: 1000 - 2700 ppm)
 #define D true // Variabile per stampare le informazioni di Debug
 
 
@@ -72,25 +75,27 @@
 SoftwareSerial BTSerial(10, 11); // RX | TX
 CO2Sensor co2Sensor(pinCo2, 0.99, 100); // Inizializzo il sensore di CO2 in A4
 IRrecv infrared(pinInfrarossi); // Inizializzo il ricevitore infrarossi
-LiquidCrystal lcd(13, 12, 5, 4, 3, 2);  // Inizializzo il display LCD 16x2 con i relativi Pin
+DHT dht(pinDht,DHT22); // DHT e relativo Pin
+LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE); // Inizializzo il display LCD 20x4 con i relativi Pin
 boolean connesso = false; // Flag per la connessione tramite Bluetooth
 
 void setup() {
   
-  Serial.begin(9600); // Comunicazione seriale
+  Serial.begin(9600); // Inizializzo comunicazione seriale
   
-  pinMode(9, OUTPUT);  // This pin will pull the HC-05 pin 34 (key pin) HIGH to switch module to AT mode
-  digitalWrite(9, HIGH); // Switcha ad AT MODE
+  pinMode(9, OUTPUT);  // Serve per permettere di passare ad AT MODE
+  digitalWrite(9, HIGH); // Passa ad AT MODE
 
   BTSerial.begin(38400);  // HC-05 baud impostato su 38400
-  lcd.begin(16, 2); // Inizializzo l'LCD 16x2
+  dht.begin(); // Inizializzo il DHT22
+  lcd.begin(20, 4); // Inizializzo l'LCD 20x4
   infrared.enableIRIn(); // Abilita l'input dal ricevitore infrarossi
   co2Sensor.calibrate(); // Calibra subito il sensore di CO2
 
   pinMode(pinLum1, INPUT); // Input perché legge la luminosità dal sensore
-  pinMode(pinLum2, INPUT); // Input perché legge la luminosità dal sensore
-  pinMode(pinLum3, INPUT); // Input perché legge la luminosità dal sensore
-  pinMode(pinLum4, INPUT); // Input perché legge la luminosità dal sensore
+  pinMode(pinLum2, INPUT);
+  pinMode(pinLum3, INPUT);
+  pinMode(pinLum4, INPUT);
   
   delay(1000);
   BTSerial.print("AT\r\n"); // Imposto il ruolo del dispositivo (1: Master, 0: Slave)
@@ -101,32 +106,27 @@ void setup() {
   delay(500);
   BTSerial.print("AT+BIND=21,13,4AC76\r\n"); // Imposta l'indirizzo Bluetooth dello Slave
   delay(500);
-  connesso = true;
+  
+  connesso = true; // Flag true!
 
   digitalWrite(9, LOW);
-  lcd.print("Lum. desiderata:"); // 16 caratteri giusti giusti ;)
-  lcd.setCursor(0, 1); // Setto il cursore nella colonna 1
   
+  printLcdStatic(); // Stampo subito le stringhe statiche del display
 }
 
 int lum = 0; // Variabile luminosità
 void leggi_lum() { // Legge la luminosità
-  lum = (int)(analogRead(pinLum1) + analogRead(pinLum2) + analogRead(pinLum3) + analogRead(pinLum4))/4;
+  lum = (analogRead(pinLum1) + analogRead(pinLum2) + analogRead(pinLum3) + analogRead(pinLum4))/4;
 }
 
-// unsigned long tempoCo2 = millis(); // Variabile del tempo per la calibrazione della co2
 int co2; // Variabile CO2 (PRIMA ERA 800)
 void leggi_co2() { // Legge il sensore di CO2
 
   co2 = co2Sensor.read(); // Lettura della co2
   
-  //TODO CALIBRAZIONE SENSORE CO2
-  
-  if(co2 > CO2_HIGH) { // Se la CO2 è alta
-    if(D) {
+  if(co2 > CO2_HIGH && D) { // Se la CO2 è alta
       Serial.print("** CO2 troppo alta! **");
       Serial.println("");
-    }
   }
 }
 
@@ -141,22 +141,25 @@ void leggi_ir() { // Per leggere i segnali del telecomando infrarossi
   if(infrared.decode(&segnale)) { // this checks to see if a code has been received
 
     Serial.println(segnale.value, HEX); // prints the hex value a a button press
-  
+    
     if(segnale.value == BUTTON_UP) {
-      if(modAutomatica == 0) irCmd = 1; // 1 = su
+      if(!modAutomatica) sendData(modAutomatica, numLcdFinal, lum, 1, co2); // 1 = Su
     }
     if(segnale.value == BUTTON_DOWN) {
-      if(modAutomatica == 0) irCmd = 2; // 2 = giù
+      if(!modAutomatica) sendData(modAutomatica, numLcdFinal, lum, 2, co2); // 2 = Giù
+    }
+    if(segnale.value == BUTTON_STAR) {
+      if(!modAutomatica) sendData(modAutomatica, numLcdFinal, lum, 3, co2); // 3 = Fermati
     }
     if(segnale.value == BUTTON_SX) {
-      if(modAutomatica == 0) modAutomatica = 1;
+      if(!modAutomatica) modAutomatica = 1;
     }
     if(segnale.value == BUTTON_DX) {
-      if(modAutomatica == 1) modAutomatica = 0;
+      if(modAutomatica) modAutomatica = 0;
     }
     if(segnale.value == BUTTON_1) {
-      numLcd += 1;
-      lcd.print(1, DEC);
+      numLcd += 1; // Accodo il numero alla mia stringa
+      lcd.print(1, DEC); // Scrivo sul display il numero digitato
     }
     if(segnale.value == BUTTON_2) {
       numLcd += 2;
@@ -195,20 +198,53 @@ void leggi_ir() { // Per leggere i segnali del telecomando infrarossi
       lcd.print(0, DEC);
     }
     if(segnale.value == BUTTON_OK) {
-      numLcdFinal = numLcd.toInt(); // Converto la mia stringa in Intero, così da poterlo inviare
+      numLcdFinal = numLcd.toInt(); // Converto la mia stringa in intero, così da poterlo inviare
       
       if(numLcdFinal >= 100) numLcdFinal = 100; // Così non va in Overflow
       sendData(modAutomatica, numLcdFinal, lum, irCmd, co2); // Invio l'intero blocco di dati
       numLcd = ""; // Ripulisco la stringa
       lcd.clear();
-      lcd.print("Inviata! " + String(numLcdFinal));
+      lcd.print("Lum. inviata: " + String(numLcdFinal));
       delay(3000); // Blocco per 3 secondi
       lcd.clear();
-      lcd.print("Lum. desiderata:");
-      lcd.setCursor(0, 1);
+      
+      printLcdStatic(); // Ristampo le informazioni del display
     }
     infrared.resume(); // Riceve il prossimo segnale
   }
+}
+
+int temperatura;
+int umidita;
+void leggi_tu() { // Legge temperatura e l'umidità dal DHT22
+  temperatura = dht.readHumidity(); // Leggo il valore di umidità
+  umidita = dht.readTemperature(); // Leggo il valore di temperatura
+}
+
+void printLcdStatic() { // Stampa solo le stringhe del display (non devono esser aggiornate)
+  lcd.print("Lum. interna: ");
+  lcd.setCursor(0,1); // Colonna - Riga
+  lcd.print("Mod. automatica: ");
+  lcd.setCursor(0,2);
+  lcd.print("Temp: ");
+  lcd.print(" Umid:");
+  lcd.setCursor(0,3);
+  lcd.print("Lum. voluta: ");
+}
+
+void printLcdDynamic() { // Stampa i dati veri e propri del display (devono esser sempre aggiornati)
+  lcd.setCursor(14,0); // Colonna - Riga
+  lcd.print(lum, DEC);
+  lcd.setCursor(17,1); // PRIMA ERANO TUTTI +1
+  if(modAutomatica) lcd.print("ON");
+  else lcd.print("OFF");
+  lcd.setCursor(6,2);
+  if(!isnan(temperatura)) lcd.print(temperatura, DEC);
+  else lcd.print("ERR");
+  lcd.setCursor(16,2);
+  if(!isnan(umidita)) lcd.print(umidita, DEC);
+  else lcd.print("ERR");
+  lcd.setCursor(13,3);
 }
 
 void scrivi_bt() { // Scrive i segnali del Bluetooth
@@ -219,33 +255,12 @@ void scrivi_bt() { // Scrive i segnali del Bluetooth
     Serial.write(BTSerial.read());
 }
 
-float bytesToInt (byte array[4]) { // Converto byte in intero
-  int l = 0;
-  
-  l =  (int)array[3];
-  l += (int)array[2] * 256;
-  l += (int)array[1] * 256 * 2;
-  l += (int)array[0] * 256 * 3;
-    
-  //float f = (float)l / 10000; // Solo per convertirlo in float
-  return l;
-}
-
 byte *intToBytes(int n) { // Converto una variabile intera in bytes
   
   byte *buf = (byte*)malloc(sizeof(int)); // Alloco dinamicamente un array di Byte
   buf[0] = (n >> 8) & 0xFF; // Byte 1: i primi 8 bit sono il primo Byte 
   buf[1] = n & 0xFF; // Byte 2: gli ultimi int sono l'altro Byte
   return buf;
-}
-
-
-float getArrayFloat(byte array[32]) { // 32 byte
-	float f[8]; // Array di float
-	for(int i = 0; i < 32; i += 4){
-		byte tmp[4];
-	}
-	
 }
 
 int totData = 0;
@@ -284,12 +299,13 @@ void loop() {
   
   leggi_ir(); // Legge il sensore infrarossi
   leggi_lum(); // Legge la luminosità
-  leggi_co2(); // Da aggiustare, causa problemi... (forse non più)
-  //scrivi_bt(); // Per debug
-
+  leggi_co2(); // Legge la CO2
+  leggi_tu(); // Leggo il DHT22
+  printLcdDynamic(); // Stampo i dati del display
+  
   if(connesso && (( (long)millis() - 1000) > oldTime)){ // Se è connesso ed è passato 1 secondo (invia ogni secondo i dati)
     oldTime = millis();
-    sendData(modAutomatica, numLcdFinal, lum, irCmd, co2); // sendData(int mod, int percentScelta, int lum, int command, int co2)
+    sendData(modAutomatica, numLcdFinal, lum, 0, co2); // sendData(int mod, int percentScelta, int lum, int command, int co2)
   }
   if(D) { // Informazioni di Debug
     
@@ -304,6 +320,15 @@ void loop() {
       
       Serial.print("CO2 rilevata: ");
       Serial.println(co2);
+
+      Serial.print("Temperatura: ");
+      if(!isnan(temperatura)) Serial.println(temperatura);
+      else Serial.println("ERRORE!");
+
+      Serial.print("Umidità: ");
+      if(!isnan(umidita)) Serial.println(umidita);
+      else Serial.println("ERRORE!");
+      
       Serial.println("");
       
     }
