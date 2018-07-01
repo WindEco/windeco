@@ -22,10 +22,10 @@
 #define pinLumESopra A0 // Fotoresitenza all'ingresso analogico 0
 #define pinLumESotto A1 // Fotoresitenza all'ingresso analogico 1
 #define pinPioggia 8 // Sensore di pioggia
-#define pinMotore 7 // Pin A del motore 7
-#define pinMotorePwm 6 // Pin B del motore 6
-#define pinVentola 4 // Pin A della ventola 5
-#define pinVentolaPwm 5 // Pin B della ventola 4
+#define pinMotore 7 // Pin A del motore
+#define pinMotorePwm 6 // Pin B del motore 
+#define pinVentola 4 // Pin A della ventola
+#define pinVentolaPwm 5 // Pin B della ventola
 SoftwareSerial BTSerial(2, 3); // RX | TX
 
 
@@ -35,7 +35,7 @@ SoftwareSerial BTSerial(2, 3); // RX | TX
 #define CO2_HIGH 700 // Variabile CO2 troppo elevata
 #define SENSORE_MAX 1023 // Max (forse 1024)
 #define SENSORE_MIN 0 // Min
-#define LUM_HIGH 800 // Luminosità che fa scattare il giorno
+#define LUM_HIGH 200 // Luminosità che fa scattare il giorno
 #define D true // Variabile per stampare le informazioni di Debug
 
 
@@ -58,14 +58,6 @@ void setup() {
     digitalWrite(9, LOW);
 }
 
-void leggi_bt() { // Scrivo i dati letti dal Bluetooth
-  if (BTSerial.available())
-    Serial.write(BTSerial.read());
-    
-  if (Serial.available())
-    BTSerial.write(Serial.read());
-}
-
 float bytesToInt (byte array[2]) { // Converto i byte in interi
   int l = 0;
   
@@ -75,11 +67,7 @@ float bytesToInt (byte array[2]) { // Converto i byte in interi
   return l;
 }
 
-
-
 // Variabili temporanee! //
-
-
 
 int modAutomaticaTmp; // Forse da mettere = 1
 int lumInternaTmp; // Quella inviata dagli altri sensori installati sulla centrale operativa
@@ -88,8 +76,7 @@ int co2Tmp; // Variabile della CO2
 
 // Variabili vere e proprie! //
 
-
-int modAutomatica;
+bool modAutomatica = true;
 int lumInterna; // Quella inviata dagli altri sensori installati sulla centrale operativa
 int percentScelta; // Quella che ha scelto l'utente dalla centrale operativa
 int lumScelta;
@@ -99,9 +86,7 @@ int totData;
 int irValue;
 
 void recvData() { // Funzione per ricevere i dati tramite Bluetooth
-  
   char c = BTSerial.read();
-  
   if(c == '<') { // Se viene letto il carattere iniziale
     while(BTSerial.available() < 12);
     byte b[2];
@@ -133,7 +118,7 @@ void recvData() { // Funzione per ricevere i dati tramite Bluetooth
     totData = modAutomaticaTmp + percentSceltaTmp + lumInternaTmp + irValue + co2Tmp;
 
     if(totData == totDataRecv) { // Controllo di eventuali errori nella comunicazione Bluetooth
-        modAutomatica = modAutomaticaTmp;
+        modAutomatica = modAutomaticaTmp == 0 ? false : true;
         lumInterna = lumInternaTmp;
         percentScelta = percentSceltaTmp;
         co2 = co2Tmp;
@@ -162,7 +147,7 @@ void recvData() { // Funzione per ricevere i dati tramite Bluetooth
           Serial.print("Effettivo comando infrarossi: ");
           Serial.println(irValue);
     
-          Serial.println("** RICEZIONE DATI PERFETTAAAAAAA! **");
+          Serial.println("RICEZIONE DATI PERFETTA!");
      
           Serial.print("\n****************\n\n");
         }
@@ -188,7 +173,7 @@ void recvData() { // Funzione per ricevere i dati tramite Bluetooth
       Serial.print("Comando infrarossi ricevuto: ");
       Serial.println(irValue);
 
-      Serial.println("** RICEZIONE DATI ERRATAAAAAAA! **");
+      Serial.println("RICEZIONE DATI ERRATA!");
  
       Serial.print("\n****************\n\n");
     }
@@ -205,8 +190,13 @@ void irRecv(int irCmd){ // In base ai comandi dati dall'utente via IR, decido co
   }
   
   if(irCmd == 2 && !modAutomatica) { // SCENDE
-    vai_giu(); // Va su la veneziana
+    vai_giu(); // Va giù la veneziana
     if(D) Serial.println("LA VENEZIANA DOVREBBE SCENDERE!");
+  }
+
+  if(irCmd == 3 && !modAutomatica) { // SI FERMA
+    fermati(); // Si ferma la veneziana
+    if(D) Serial.println("LA VENEZIANA DOVREBBEE FERMARSI!");
   }
   
 }
@@ -274,7 +264,7 @@ void leggi_pioggia() {
   
   int valPioggia = digitalRead(pinPioggia); // Legge 1 oppure 0
   
-  if(valPioggia == 1) // Se sta piovendo
+  if(valPioggia) // Se sta piovendo
     if(!piove) piove = true;
   else
     if(piove) piove = false;
@@ -282,37 +272,41 @@ void leggi_pioggia() {
 }
 
 void vai_su() { // Per farla salire
-  digitalWrite(pinMotore, HIGH); // Forse da invertire
+  Serial.print("Modalità: ");
+  Serial.print(modAutomatica);
+  Serial.println(", CMD: su");
+  digitalWrite(pinMotore, HIGH);
   digitalWrite(pinMotorePwm, 255);
 }
 
 void vai_giu() { // Per farla scendere 
-  digitalWrite(pinMotore, LOW); // Forse da invertire
+  Serial.print("Modalità: ");
+  Serial.print(modAutomatica);
+  Serial.println(", CMD: giù");
+  digitalWrite(pinMotore, LOW);
   digitalWrite(pinMotorePwm, 255);
 }
 
 void fermati() { // Per farla fermare
-  //digitalWrite(pinMotore, HIGH);
   digitalWrite(pinMotorePwm, 0);
 }
 
 boolean ventola = false;
 void ventola_on() { // Attivazione della ventola
   if(ventola) return; // Se la ventola è accesa allora esco
-  digitalWrite(pinVentola, HIGH); // Forse va invertito
+  digitalWrite(pinVentola, LOW); // Va messo a LOW per farla accendere
   digitalWrite(pinVentolaPwm, 255);
   ventola = true;
 }
 
 void ventola_off() { // Disattivazione della ventola
-  if(!ventola) return; // Se la ventola è spenta allora esco
-  //digitalWrite(pinVentola, LOW);
+  if(!ventola) return; // Se la ventola è spenta allora esco dalla funzione
   digitalWrite(pinVentolaPwm, 0);
   ventola = false;
 }
 
 long oldTime = 0;
-float lumEsterna = (analogRead(pinLumESopra) + analogRead(pinLumESotto))/2; // Luminosità esterna
+int lumEsterna;
 void loop() {
   
   recvData(); // Ricevimento dati dal Bluetooth
@@ -325,17 +319,19 @@ void loop() {
     ventola_off(); // Altrimenti spengo la ventola
     
   // deve chiedere al bt la lum interna, quella richiesta dall'utente, e dopo se dentro c'è più luminosità di quella richiesta dall'utente e fuori c'è più lumonosità che quella interna, chiude la persiana
-  if((modAutomatica && giorno && lumInterna > lumScelta && lumEsterna > lumInterna) || piove) vai_giu(); // Se è attiva la modAuto ed è notte e dentro c'è più luminosità di quella richiesta dall'utente e fuori c'è più lumonosità che quella interna oppure piove, chiude la persiana
+  if(modAutomatica && ((giorno && lumInterna > lumScelta && lumEsterna > lumInterna) || piove)) vai_giu(); // Se è attiva la modAuto ed è notte e dentro c'è più luminosità di quella richiesta dall'utente e fuori c'è più lumonosità che quella interna oppure piove, chiude la persiana
   
   if(modAutomatica && !giorno) vai_giu(); // Se modAuto è accesa ed è notte, viene giù la veneziana
 
-  if((modAutomatica&& giorno && lumInterna < lumScelta && lumInterna < lumEsterna) || !piove) vai_su(); // Se modAuto è attiva e è giorno e quando la lumInterna è minore di quella desiderata e la lumEsterna è maggiore di quella interna
- 
+  if( modAutomatica && giorno && lumInterna < lumScelta && lumInterna < lumEsterna && !piove) vai_su(); // Se modAuto è attiva e è giorno e quando la lumInterna è minore di quella desiderata e la lumEsterna è maggiore di quella interna
+
+  lumEsterna = (analogRead(pinLumESopra) + analogRead(pinLumESotto)) / 2; // Luminosità esterna
+  
   if(D && (( (long)millis() - 1000) > oldTime)) { // Scrive le informazioni di Debug
     oldTime = millis();
 
     Serial.print("\n ----------------------- \n\n");
-    
+
     Serial.print("Media luminosità esterna: ");
     Serial.println(lumEsterna);
     
