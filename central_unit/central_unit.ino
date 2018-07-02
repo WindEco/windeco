@@ -65,7 +65,7 @@
 // DEFINIZIONE VARIABILI STATICHE GLOABLI //
 
 
-#define CO2_HIGH 500 // Variabile che definisce la soglia massima della CO2 (Max: 1000 - 2700 ppm)
+#define CO2_HIGH 700 // Variabile che definisce la soglia massima della CO2 (Max: 1000 - 2700 ppm)
 #define D true // Variabile per stampare le informazioni di Debug
 
 
@@ -132,7 +132,7 @@ void leggi_co2() { // Legge il sensore di CO2
 
 int irCmd = 0; // Valore letto dal sensore infrarossi inizialmente nullo
 String numLcd = "";
-int numLcdFinal = 100; // Percentuale della luminosità voluta dall'utente da inviare tramite Bluetooth
+int numLcdFinal = 40; // Percentuale della luminosità voluta dall'utente da inviare tramite Bluetooth
 int modAutomatica = 1; // Indica se la modalità automatica è attivata
 void leggi_ir() { // Per leggere i segnali del telecomando infrarossi
   
@@ -217,8 +217,8 @@ void leggi_ir() { // Per leggere i segnali del telecomando infrarossi
 int temperatura;
 int umidita;
 void leggi_tu() { // Legge temperatura e l'umidità dal DHT22
-  temperatura = dht.readHumidity(); // Leggo il valore di umidità
-  umidita = dht.readTemperature(); // Leggo il valore di temperatura
+  temperatura = dht.readTemperature(); // Leggo il valore della temperatura
+  umidita = dht.readHumidity(); // Leggo il valore dell'umidità
 }
 
 void printLcdStatic() { // Stampa solo le stringhe del display (non devono esser aggiornate)
@@ -227,6 +227,7 @@ void printLcdStatic() { // Stampa solo le stringhe del display (non devono esser
   lcd.print("Mod. automatica: ");
   lcd.setCursor(0,2);
   lcd.print("Temp: ");
+  lcd.setCursor(9,2);
   lcd.print(" Umid:");
   lcd.setCursor(0,3);
   lcd.print("Lum. voluta: ");
