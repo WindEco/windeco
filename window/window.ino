@@ -26,6 +26,7 @@
 #define pinMotorePwm 6 // Pin B del motore 
 #define pinVentola 4 // Pin A della ventola
 #define pinVentolaPwm 5 // Pin B della ventola
+#define pinLedDati 9 // Pin del Led per verificare che i dati ricevuti siano corretti
 SoftwareSerial BTSerial(2, 3); // RX | TX
 
 
@@ -33,9 +34,7 @@ SoftwareSerial BTSerial(2, 3); // RX | TX
 
 
 #define CO2_HIGH 700 // Variabile CO2 troppo elevata
-#define SENSORE_MAX 1023 // Max (forse 1024)
-#define SENSORE_MIN 0 // Min
-#define LUM_HIGH 200 // Luminosità che fa scattare il giorno
+#define LUM_HIGH 700 // Luminosità che fa scattare il giorno
 #define D true // Variabile per stampare le informazioni di Debug
 
 
@@ -49,6 +48,7 @@ void setup() {
     pinMode(pinMotorePwm, OUTPUT);  // Pin B del motore
     pinMode(pinVentola, OUTPUT); // Pin A ventola ricircolo
     pinMode(pinVentolaPwm, OUTPUT); // Pin B ventola ricircolo
+    pinMode(pinLedDati, OUTPUT); // Pin del Led dei dati
     pinMode(pinLumESopra, INPUT); // Fotoresistenza esterna sopra
     pinMode(pinLumESotto, INPUT); // Fotoresistenza esterna sotto
 
@@ -124,8 +124,10 @@ void recvData() { // Funzione per ricevere i dati tramite Bluetooth
         co2 = co2Tmp;
         irRecv(irValue);
         
-        lumScelta = (lumInterna * percentScelta) / 100; // Calcolo luminosità effettiva voluta dall'utente (lo calcolo solo se è giusta la ricezione)
+        lumScelta = (10 * percentScelta); // Calcolo luminosità effettiva voluta dall'utente (lo calcolo solo se è giusta la ricezione)
 
+        digitalWrite(pinLedDati, LOW); // I dati sono corretti, quindi spengo il Led
+        
         if(D) {
           Serial.print("\n********* DATI CORRETTI *********\n\n");
           
@@ -152,30 +154,32 @@ void recvData() { // Funzione per ricevere i dati tramite Bluetooth
           Serial.print("\n****************\n\n");
         }
         
-    }else if(D) {
-      Serial.print("\n********* DATI ERRATI *********\n\n");
+    }else{
       
-      Serial.print("Mod Automatica ricevuta: ");
-      Serial.println(modAutomaticaTmp);
+      digitalWrite(pinLedDati, HIGH); // I dati sono sbagliati, quindi accendo il Led
       
-      Serial.print("Percentuale lum utente ricevuta: ");
-      Serial.println(percentSceltaTmp);
-
-      //Serial.print("Luminosità effettiva scelta ricevuta: ");
-      //Serial.println(lumSceltaTmp);
-      
-      Serial.print("Lum interna ricevuta: ");
-      Serial.println(lumInternaTmp);
-      
-      Serial.print("CO2 ricevuta: ");
-      Serial.println(co2Tmp);
-      
-      Serial.print("Comando infrarossi ricevuto: ");
-      Serial.println(irValue);
-
-      Serial.println("RICEZIONE DATI ERRATA!");
- 
-      Serial.print("\n****************\n\n");
+      if(D) {
+        Serial.print("\n********* DATI ERRATI *********\n\n");
+        
+        Serial.print("Mod Automatica ricevuta: ");
+        Serial.println(modAutomaticaTmp);
+        
+        Serial.print("Percentuale lum utente ricevuta: ");
+        Serial.println(percentSceltaTmp);
+        
+        Serial.print("Lum interna ricevuta: ");
+        Serial.println(lumInternaTmp);
+        
+        Serial.print("CO2 ricevuta: ");
+        Serial.println(co2Tmp);
+        
+        Serial.print("Comando infrarossi ricevuto: ");
+        Serial.println(irValue);
+  
+        Serial.println("RICEZIONE DATI ERRATA!");
+   
+        Serial.print("\n****************\n\n");
+      }
     }
   }
 }
@@ -319,11 +323,11 @@ void loop() {
     ventola_off(); // Altrimenti spengo la ventola
     
   // deve chiedere al bt la lum interna, quella richiesta dall'utente, e dopo se dentro c'è più luminosità di quella richiesta dall'utente e fuori c'è più lumonosità che quella interna, chiude la persiana
-  if(modAutomatica && ((giorno && lumInterna > lumScelta && lumEsterna > lumInterna) || piove)) vai_giu(); // Se è attiva la modAuto ed è notte e dentro c'è più luminosità di quella richiesta dall'utente e fuori c'è più lumonosità che quella interna oppure piove, chiude la persiana
+  if(modAutomatica && ((giorno && lumInterna > lumScelta) || piove)) vai_giu(); // Se è attiva la modAuto ed è notte e dentro c'è più luminosità di quella richiesta dall'utente e fuori c'è più lumonosità che quella interna oppure piove, chiude la persiana
   
   if(modAutomatica && !giorno) vai_giu(); // Se modAuto è accesa ed è notte, viene giù la veneziana
 
-  if( modAutomatica && giorno && lumInterna < lumScelta && lumInterna < lumEsterna && !piove) vai_su(); // Se modAuto è attiva e è giorno e quando la lumInterna è minore di quella desiderata e la lumEsterna è maggiore di quella interna
+  if( modAutomatica && giorno && lumInterna < lumScelta && !piove) vai_su(); // Se modAuto è attiva e è giorno e quando la lumInterna è minore di quella desiderata e la lumEsterna è maggiore di quella interna
 
   lumEsterna = (analogRead(pinLumESopra) + analogRead(pinLumESotto)) / 2; // Luminosità esterna
   
